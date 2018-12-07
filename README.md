@@ -1,4 +1,4 @@
-# IronPython Ldap
+# IronPython LDAP
 IronPython scripts for LDAP/ActiveDirectory enumeration.
 
 ### ldapPasswordGuesser.py
