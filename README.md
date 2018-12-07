@@ -1,6 +1,9 @@
 # IronPython Ldap
 IronPython scripts for LDAP/ActiveDirectory enumeration.
 
+### ldapPasswordGuesser.py
+Multithreaded password guesser.
+
 ### getLdapUsers.py
 Queries and returns all users in a domain.
 
