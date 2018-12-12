@@ -15,6 +15,7 @@ import os
 import sys
 import threading
 import Queue
+import time
 
 # Required to import .Net assemblies. CLR is Common Language Runtime
 import clr
@@ -50,9 +51,17 @@ def guessLdapCreds(user):
     function. Prints valid credentials to the screen.
     """
     for password in passwords:
-        isValid = validateCredentials(
-            user, password, domain
-        )
+        try:
+            isValid = validateCredentials(
+                user, password, domain
+            )
+        except Exception as e:
+            with printLock:
+                print '[-] An error occurred while guessing {}:{}: {}'.format(
+                    user, password, e
+                )
+                time.sleep(10)
+                continue
         if isValid:
             with printLock:
                 print '[+] {}:{}'.format(user, password)
