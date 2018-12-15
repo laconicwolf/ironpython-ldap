@@ -3,7 +3,7 @@
 __author__ = 'Jake Miller (@LaconicWolf)'
 __date__ = '20181128'
 __version__ = '0.01'
-__description__ = '''A multithreaded program to get the groups of specified user(s)'''
+__description__ = '''A multithreaded program to get the members of specified groups'''
 
 import platform
 if platform.python_implementation() != 'IronPython':
@@ -26,7 +26,7 @@ clr.AddReference("System.DirectoryServices.AccountManagement")
 
 # Importing the specific namespaces
 from System.DirectoryServices import AccountManagement
-from System.DirectoryServices.AccountManagement import UserPrincipal
+from System.DirectoryServices.AccountManagement import UserPrincipal, GroupPrincipal
 from System.Environment import UserDomainName
 
 def getPrincipalContext(domainName, ldapUsername, ldapPassword):
@@ -43,25 +43,26 @@ def getPrincipalContext(domainName, ldapUsername, ldapPassword):
         exit()
     return principalContext
 
-def getUserGroup(principalContext, ldapUsername):
-    """Requires a username and principal context. Returns a dictionary
-    where the key is the user and the value is a list of groups.
+def getGroupMembers(principalContext, ldapGroupname):
+    """Requires a group name and principal context. Returns a 
+    dictionary where the key is the group name and the value is 
+    a list of group members.
     """
-    user = UserPrincipal.FindByIdentity(principalContext, ldapUsername)
-    groups = user.GetGroups()
-    groupList = [group.Name for group in groups]
-    results[ldapUsername] = groupList
+    group = GroupPrincipal.FindByIdentity(principalContext, ldapGroupname)
+    allMembers = group.GetMembers(True)
+    memberList = [member.SamAccountName for member in allMembers]
+    results[ldapGroupname] = memberList
 
 def manageQueue():
-    """Manages the username queue, passing each user to the 
-    getUserGroup function.
+    """Manages the group queue, passing each group to the 
+    getGroupMembers function.
     """
     context = getPrincipalContext(domain, ldapUser, ldapPass)
     while True:
-        currentUser = userQueue.get()
-        #print '[*] Getting groups for {}'.format(currentUser)
-        getUserGroup(context, currentUser)
-        userQueue.task_done()
+        currentGroup = groupQueue.get()
+        #print '[*] Getting users for {}'.format(currentGroup)
+        getGroupMembers(context, currentGroup)
+        groupQueue.task_done()
 
 def main():
     """Starts the multithreading."""
@@ -69,14 +70,14 @@ def main():
         t = threading.Thread(target=manageQueue)
         t.daemon = True
         t.start()
-    for currentUser in usernames:
-        userQueue.put(currentUser)
-    userQueue.join()
+    for currentGroup in groupnames:
+        groupQueue.put(currentGroup)
+    groupQueue.join()
     print
     for item in results:
         print item
-        for groupname in results[item]:
-            print "  {}".format(groupname)
+        for username in results[item]:
+            print "  {}".format(username)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -96,12 +97,12 @@ if __name__ == '__main__':
         help='Specify a password to authenticate with.'
     )
     parser.add_argument(
-        '-uf', '--username_file',
-        help='Specify the path of a file containing usernames to get associated groups.'
+        '-gf', '--groupname_file',
+        help='Specify the path of a file containing groupnames to get associated users.'
     )
     parser.add_argument(
-        '-u', '--username',
-        help='Specify a single username to get associated groups.'
+        '-g', '--groupname',
+        help='Specify a single groupname to get associated users.'
     )
     parser.add_argument(
         "-t", "--threads",
@@ -113,26 +114,26 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    if not args.username and not args.username_file:
+    if not args.groupname and not args.groupname_file:
         parser.print_help()
-        print ('\n[-] Please specify either a single username (-u) or the '
-        'path to a file listing usernames (-uf).')
+        print ('\n[-] Please specify either a single groupname (-g) or the '
+        'path to a file listing groupnames (-gf).')
         exit()
-    if args.username and args.username_file:
+    if args.groupname and args.groupname_file:
         parser.print_help()
-        print ('\n[-] Please specify either a single username (-u) or the '
-        'path to a file listing usernames (-uf). Not both.')
+        print ('\n[-] Please specify either a single groupname (-g) or the '
+        'path to a file listing groupnames (-gf). Not both.')
         exit()
-    if args.username:
-        usernames = [args.username]
-    if args.username_file:
-        if not os.path.exists(args.username_file):
+    if args.groupname:
+        groupnames = [args.groupname]
+    if args.groupname_file:
+        if not os.path.exists(args.groupname_file):
             print ('\n[-] The file {} does not exist or you do not have '
             'access to it. Please check the path and try again.'.format(
-                args.username_file))
+                args.groupname_file))
             exit()
-        with open(args.username_file) as fh:
-            usernames = fh.read().splitlines()
+        with open(args.groupname_file) as fh:
+            groupnames = fh.read().splitlines()
 
     if args.authusername:
         ldapUser = args.authusername
@@ -148,7 +149,7 @@ if __name__ == '__main__':
         domain = UserDomainName
 
     printLock = threading.Lock()
-    userQueue = Queue.Queue()
+    groupQueue = Queue.Queue()
 
     # Global dictionary to store the results
     results = {}
