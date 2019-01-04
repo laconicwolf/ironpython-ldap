@@ -41,7 +41,10 @@ def getLdapUsers(domainController, ldapUsername, ldapPassword):
     results = searcher.FindAll()
     userNames = []
     for item in results:
-        username = item.GetDirectoryEntry().Properties['samaccountname'].Value
+        try:
+            username = item.GetDirectoryEntry().Properties['samaccountname'].Value
+        except:
+            write_to_file(userNames, 'ldap_users.txt')
         print username
         userNames.append(username)
     return userNames
@@ -55,6 +58,13 @@ def getDomainControllerName(domainName, ldapUsername, ldapPassword):
     domainController = domainObj.FindDomainController()
     return domainController.Name
 
+
+def write_to_file(data, filename):
+    with open(filename, 'w') as fh:
+        for item in data:
+            fh.write(item + '\n')
+
+
 def main():
     """Queries LDAP to get all users in a Domain. Prints to the terminal
     and write to a file."""
@@ -66,14 +76,12 @@ def main():
         exit()
     print '[+] Successfully authenticated to {}. Querying all User Names:\n'.format(dcName)
     try:
-        compNames = getLdapUsers(dcName, username, password)
+        userNames = getLdapUsers(dcName, username, password)
     except Exception as e:
         print 'An error occurred: {}'.format(e)
         exit()
     outFileName = 'user_names_{}.txt'.format(domain.replace('.', '_'))
-    with open(outFileName, 'w') as fh:
-        for comp in compNames:
-            fh.write(comp + '\n')
+    write_to_file(userNames, outFileName)
     print '[*] User names for {} written to {}.'.format(domain, outFileName)
 
 if __name__ == '__main__':
